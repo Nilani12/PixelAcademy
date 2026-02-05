@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Pixel~</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+<style>
+:root{
+  --pink:#ffe4ec;
+  --pink-dark:#ff8fab;
+  --cream:#fff7e6;
+  --text:#333;
+}
+*{box-sizing:border-box;}
+body{margin:0;font-family:system-ui,sans-serif;background:var(--pink);color:var(--text);}
+.hidden{display:none;}
+header{background:var(--cream);padding:20px;text-align:center;font-size:2.5rem;font-weight:700;}
+nav{display:flex;justify-content:center;gap:20px;padding:10px;background:#fff;}
+nav button{background:none;border:none;font-size:1rem;cursor:pointer;color:var(--pink-dark);}
+.container{max-width:1100px;margin:auto;padding:20px;}
+.card{background:#fff;border-radius:16px;padding:20px;margin-bottom:20px;}
+button.primary{background:var(--pink-dark);color:white;border:none;padding:10px 18px;border-radius:10px;cursor:pointer;}
+input,select,textarea{width:100%;max-width:400px;padding:10px;margin:8px 0;border-radius:8px;border:1px solid #ccc;}
+footer{text-align:center;padding:20px;font-size:0.9rem;background:var(--cream);}
+</style>
+</head>
+<body>
+
+<header>Pixel~ ✨</header>
+
+<nav id="mainNav" class="hidden">
+  <button onclick="showPage('dashboard')">Dashboard</button>
+  <button onclick="showPage('playground')">Playground</button>
+  <button onclick="showPage('challenges')">Challenges</button>
+  <button onclick="showPage('games')">Games</button>
+  <button onclick="showPage('rewards')">Rewards</button>
+  <button onclick="showPage('modeSettings')">Mode</button>
+  <button onclick="logout()">Logout</button>
+</nav>
+
+<div class="container">
+
+  <!-- AUTH -->
+  <div id="authPage" class="card">
+    <h2>Login / Sign Up</h2>
+    <input id="username" placeholder="Choose a Pixel ID">
+    <input id="email" placeholder="Email">
+    <input id="password" type="password" placeholder="Password">
+    <label style="font-size:0.9rem">
+      <input type="checkbox" id="policyCheck">
+      I agree to the 
+      <span style="color:#ff8fab;cursor:pointer" onclick="showPage('privacyPolicy')">
+        Privacy Policy
+      </span>
+    </label>
+    <br><br>
+    <button class="primary" onclick="signup()">Sign Up</button>
+    <button onclick="login()">Login</button>
+    <p id="authMsg" style="color:red"></p>
+    <p style="font-size:0.9rem;color:#ff8fab;cursor:pointer" onclick="resetPassword()">Forgot password?</p>
+  </div>
+
+  <!-- PRIVACY POLICY -->
+  <div id="privacyPolicy" class="card hidden">
+    <h2>Privacy Policy – Pixel~</h2>
+    <p><b>Last updated:</b> 2026</p>
+    <h3>1. Who We Are</h3>
+    <p>Pixel~ is an educational platform for kids and teens to learn coding creatively.</p>
+    <h3>2. Information We Collect</h3>
+    <ul>
+      <li>Email address</li>
+      <li>Pixel ID (username)</li>
+      <li>Age (for personalization)</li>
+    </ul>
+    <h3>3. How We Use Data</h3>
+    <p>To manage accounts, personalize learning, and improve the platform.</p>
+    <h3>4. Children’s Privacy</h3>
+    <p>Parents may request data deletion at any time.</p>
+    <h3>5. Data Sharing</h3>
+    <p>We do not sell or share personal data.</p>
+    <h3>6. Security</h3>
+    <p>We use secure cloud services.</p>
+    <h3>7. Contact</h3>
+    <p>Email: <b>pixel.learning@gmail.com</b></p>
+    <button onclick="showPage('authPage')">Back</button>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div id="dashboard" class="card hidden">
+    <h2>Dashboard</h2>
+    <p>Welcome to your Pixel~ dashboard.</p>
+  </div>
+
+  <!-- Playground -->
+  <div id="playground" class="card hidden">
+    <h2>Playground</h2>
+    <p>Where you will code and create your projects.</p>
+  </div>
+
+  <!-- Challenges -->
+  <div id="challenges" class="card hidden">
+    <h2>Challenges</h2>
+    <p>Mini coding tasks and exercises will appear here.</p>
+  </div>
+
+  <!-- Games -->
+  <div id="games" class="card hidden">
+    <h2>Games</h2>
+    <p>Fun coding-related games for practice and rewards.</p>
+  </div>
+
+  <!-- Rewards -->
+  <div id="rewards" class="card hidden">
+    <h2>Rewards</h2>
+    <p>Your achievements and rewards will appear here.</p>
+  </div>
+
+  <!-- Mode Settings -->
+  <div id="modeSettings" class="card hidden">
+    <h2>Change Learning Mode</h2>
+    <p>Options will appear here.</p>
+  </div>
+
+</div>
+
+<footer>
+  © 2026 Pixel~ | <span style="cursor:pointer;color:#ff8fab" onclick="showPage('privacyPolicy')">Privacy Policy</span>
+</footer>
+
+<script>
+// FIREBASE CONFIG (replace with your own)
+firebase.initializeApp({
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID"
+});
+const auth = firebase.auth();
+const db = firebase.firestore();
+const ADMIN_EMAIL = "pixel.learning@gmail.com";
+
+let currentUser = null;
+
+// NAVIGATION
+function showPage(id){
+  document.querySelectorAll('.card').forEach(c=>c.classList.add('hidden'));
+  document.getElementById(id).classList.remove('hidden');
+}
+
+// SIGNUP
+async function signup(){
+  authMsg.textContent="";
+  if(!policyCheck.checked){
+    authMsg.textContent="You must accept the Privacy Policy.";
+    return;
+  }
+  try{
+    const cred = await auth.createUserWithEmailAndPassword(email.value,password.value);
+    await db.collection("users").doc(cred.user.uid).set({
+      username: username.value,
+      email: email.value,
+      isAdmin: email.value===ADMIN_EMAIL,
+      acceptedPolicy:true,
+      createdAt:new Date(),
+      age:null,
+      learningMode:null,
+      hasCompletedOnboarding:false
+    });
+    login();
+  }catch(e){
+    authMsg.textContent=e.message;
+  }
+}
+
+// LOGIN
+async function login(){
+  authMsg.textContent="";
+  try{
+    const cred = await auth.signInWithEmailAndPassword(email.value,password.value);
+    currentUser=cred.user;
+    const userDoc = await db.collection("users").doc(currentUser.uid).get();
+    const data = userDoc.data();
+    if(!data.hasCompletedOnboarding){
+      alert("Onboarding will start after login.");
+      // showPage("onboardingPage"); // To be added in Part 2
+    } else {
+      document.getElementById("mainNav").classList.remove("hidden");
+      showPage("dashboard");
+    }
+  }catch(e){authMsg.textContent=e.message;}
+}
+
+// LOGOUT
+function logout(){
+  auth.signOut();
+  currentUser=null;
+  document.getElementById("mainNav").classList.add("hidden");
+  showPage("authPage");
+}
+
+// RESET PASSWORD
+function resetPassword(){
+  if(!email.value){
+    authMsg.textContent="Enter your email first.";
+    return;
+  }
+  auth.sendPasswordResetEmail(email.value)
+  .then(()=>authMsg.textContent="Reset email sent.")
+  .catch(e=>authMsg.textContent=e.message);
+}
+</script>
+
+</body>
+</html>
+<!-- Add this inside the .container of your existing code -->
+
+<!-- ONBOARDING PAGE -->
+<div id="onboardingPage" class="card hidden">
+  <h2>Welcome to Pixel~! 🎉</h2>
+  <p>Tell us your age to customize your experience:</p>
+  <input id="ageInput" type="number" placeholder="Enter your age" min="1" max="120">
+  <button class="primary" onclick="submitAge()">Continue</button>
+</div>
+
+<!-- LEARNING MODE SETTINGS (also re-usable later) -->
+<div id="modeSettingsPage" class="card hidden">
+  <h2>Learning Mode</h2>
+  <p>Change your preferred mode anytime:</p>
+  <select id="modeSelect">
+    <option value="blocks">Blocks</option>
+    <option value="english">English Commands</option>
+    <option value="pseudocode">Pseudocode</option>
+    <option value="python">Python</option>
+  </select>
+  <button class="primary" onclick="saveMode()">Save Mode</button>
+</div>
+
+<script>
+// PART 2 – ONBOARDING & MODE
+
+// Called after login if user hasn't completed onboarding
+function showOnboarding(){
+  showPage('onboardingPage');
+}
+
+// Called when user submits age
+async function submitAge(){
+  const age = parseInt(ageInput.value);
+  if(!age || age<1){
+    alert("Enter a valid age");
+    return;
+  }
+  let mode;
+  if(age<10) mode='blocks';
+  else if(age<18) mode='english';
+  else if(age<25) mode='pseudocode';
+  else mode='python';
+
+  // Save to Firestore
+  await db.collection("users").doc(currentUser.uid).update({
+    age: age,
+    learningMode: mode,
+    hasCompletedOnboarding:true
+  });
+
+  alert(`Your default learning mode is set to: ${mode}`);
+  document.getElementById("modeSelect").value=mode;
+
+  document.getElementById("mainNav").classList.remove("hidden");
+  showPage("dashboard");
+}
+
+// Load existing mode for user settings
+async function loadModeSettings(){
+  const doc = await db.collection("users").doc(currentUser.uid).get();
+  if(doc.exists && doc.data().learningMode){
+    modeSelect.value = doc.data().learningMode;
+  }
+}
+
+// Save mode changes from settings
+async function saveMode(){
+  const mode = modeSelect.value;
+  await db.collection("users").doc(currentUser.uid).update({
+    learningMode: mode
+  });
+  alert(`Learning mode changed to: ${mode}`);
+}
+</script>
+<div id="emojiPickerPage" class="card hidden">
+  <h2>Pick Your Coding Buddies! 🎨</h2>
+  <p>Select one doodle/emoji per error category. They’ll help guide you when mistakes happen.</p>
+
+  <div id="emojiCategories">
+
+    <!-- SPELLING ERRORS -->
+    <div class="emojiCategory">
+      <h3>Spelling Errors</h3>
+      <div class="emojiOptions">
+        🅰️ 🅱️ 🆎 🆑 📝 🔤 🔠 ✏️ 🖊️ 🖋️ 🖌️ 🖍️ 🏷️ 🆔 🆕 🆒 🆓 🆖 🅾️ 🆗 🆘 🆙 🆚 🆏 🅿️ 🆖 🅾️ 🆗 🆙
+      </div>
+    </div>
+
+    <!-- LINE ORDER ERRORS -->
+    <div class="emojiCategory">
+      <h3>Line Order Errors</h3>
+      <div class="emojiOptions">
+        🔀 ↕️ 🔁 🔂 🔄 🔃 ⬆️ ⬇️ ↩️ ↪️ ⏫ ⏬ 🔼 🔽 ↔️ ↖️ ↘️ ↙️ ↗️ ⏪ ⏩ 🔝 🔚 🔙 🔛 🔜 🔝 🔂 🔁 🔀
+      </div>
+    </div>
+
+    <!-- SYNTAX ERRORS -->
+    <div class="emojiCategory">
+      <h3>Syntax Errors</h3>
+      <div class="emojiOptions">
+        ❌ ⚠️ 🛑 ⛔ 🚫 🔴 🔵 ⚫ ⚪ 🔶 🔷 🔸 🔹 🔺 🔻 💢 💥 💣 💫 💥 ⚡ 🔌 🔧 🧰 🪛 🪝 🔑 🗝️ 🔐
+      </div>
+    </div>
+
+    <!-- LOGIC ERRORS -->
+    <div class="emojiCategory">
+      <h3>Logic Errors</h3>
+      <div class="emojiOptions">
+        🤔 💡 🧠 🧐 📝 🧩 🪄 🧪 🧬 🔍 🕵️‍♂️ 🔎 🛠️ 🧰 ⚙️ 🗝️ 🧹 🧼 🪣 🧯 🔑 🎯 🎲 🪀 🎛️ 🧱 🪵 🧨 🧧
+      </div>
+    </div>
+
+    <!-- RUNTIME ERRORS -->
+    <div class="emojiCategory">
+      <h3>Runtime Errors</h3>
+      <div class="emojiOptions">
+        🔥 ⚡ 💥 🌪️ 🌊 🌋 🌩️ 🧨 🚨 🚒 ⏱️ ⏳ 🕳️ ☢️ ☣️ ⚠️ ❗ ❕ 💣 💬 🔊 📢 📣 🛑 ⛔ 🆘 🚧 🧯
+      </div>
+    </div>
+
+  </div>
+
+  <button class="primary" onclick="saveEmojiSelection()">Save Selection</button>
+</div>
+
+<style>
+.emojiCategory{margin-bottom:20px;}
+.emojiOptions{display:flex;flex-wrap:wrap;gap:10px;}
+.emojiOptions span{font-size:2rem;cursor:pointer;transition:transform 0.2s;}
+.emojiOptions span:hover{transform:scale(1.4);}
+.selected{border:2px solid var(--pink-dark);border-radius:8px;padding:2px;}
+</style>
+
+<script>
+// EMOJI / DOODLE SELECTION LOGIC
+
+let selectedEmojis = {
+  spelling:null,
+  lineOrder:null,
+  syntax:null,
+  logic:null,
+  runtime:null
+};
+
+// User clicks emoji
+function selectEmoji(category, emoji){
+  selectedEmojis[category] = emoji;
+
+  // Highlight selected visually
+  document.querySelectorAll(`#emojiPickerPage .emojiCategory`).forEach(cat=>{
+    if(cat.querySelector('h3').textContent.toLowerCase().includes(category)){
+      cat.querySelectorAll('span').forEach(e=>{
+        if(e.textContent===emoji) e.classList.add('selected');
+        else e.classList.remove('selected');
+      });
+    }
+  });
+}
+
+// Save selection to Firestore
+async function saveEmojiSelection(){
+  if(!currentUser){alert("Login first!");return;}
+  await db.collection("users").doc(currentUser.uid).update({
+    emojiBuddy:selectedEmojis
+  });
+  alert("Your coding buddies are saved! You can change them anytime.");
+  showPage("dashboard");
+}
+
+// Load previously selected emojis
+async function loadEmojiSelection(){
+  if(!currentUser) return;
+  const docSnap = await db.collection("users").doc(currentUser.uid).get();
+  if(docSnap.exists && docSnap.data().emojiBuddy){
+    selectedEmojis = docSnap.data().emojiBuddy;
+    Object.keys(selectedEmojis).forEach(cat=>{
+      selectEmoji(cat, selectedEmojis[cat]);
+    });
+  }
+}
+
+// Automatically show picker after onboarding
+auth.onAuthStateChanged(async(user)=>{
+  if(user){
+    currentUser = user;
+    const doc = await db.collection("users").doc(currentUser.uid).get();
+    if(doc.exists && !doc.data().hasCompletedOnboarding){
+      showPage("onboardingPage");
+    } else {
+      showPage("dashboard");
+      document.getElementById("mainNav").classList.remove("hidden");
+    }
+  }
+});
+</script>
+<!-- Add this inside your .container after emojiPickerPage -->
+
+<div id="playgroundPage" class="card hidden">
+  <h2>Playground</h2>
+  <p>Type your code in your preferred language below. Mistakes will trigger your buddy’s hints!</p>
+
+  <label for="codeInput">Your Code:</label>
+  <textarea id="codeInput" rows="8" placeholder="Type here..."></textarea>
+
+  <label for="languageSelect">Language:</label>
+  <select id="languageSelect">
+    <option value="english">English Commands</option>
+    <option value="pseudocode">Pseudocode</option>
+    <option value="python">Python</option>
+  </select>
+
+  <button class="primary" onclick="runCode()">Run / Convert to JavaScript</button>
+
+  <div id="outputBox" class="card" style="margin-top:20px;">
+    <h3>Output / Hints</h3>
+    <div id="hintArea"></div>
+    <pre id="jsOutput"></pre>
+  </div>
+</div>
+
+<style>
+#codeInput{font-family:monospace;font-size:1rem;}
+#outputBox{background:var(--cream);padding:10px;border-radius:12px;}
+#hintArea{margin-bottom:10px;font-size:1.2rem;}
+</style>
+
+<script>
+// PART 4 – PLAYGROUND & CONVERSION
+
+// Simple demo of command-to-JS mapping
+const commandMap = {
+  "print hello world":"console.log('Hello World');",
+  "show hello world":"console.log('Hello World');",
+  "add a and b":"console.log(a+b);"
+};
+
+// Error detection simulation
+function detectErrors(code){
+  const errors = [];
+  // Spelling error demo
+  if(code.includes("pritn")) errors.push({type:"spelling", message:"Did you mean 'print'?"});
+  // Syntax error demo
+  if(code.includes("console.log(") && !code.includes(")")) errors.push({type:"syntax", message:"Missing closing parenthesis"});
+  // Line order demo (simple example)
+  if(code.includes("return") && !code.includes("function")) errors.push({type:"lineOrder", message:"return outside function"});
+  return errors;
+}
+
+// Run / convert
+async function runCode(){
+  const code = document.getElementById("codeInput").value.toLowerCase();
+  const lang = document.getElementById("languageSelect").value;
+  const jsOut = [];
+
+  // Conversion
+  if(lang==="english"){
+    const lines = code.split("\n");
+    for(let l of lines){
+      jsOut.push(commandMap[l.trim()] || "// Cannot convert: "+l);
+    }
+  } else if(lang==="pseudocode" || lang==="python"){
+    // basic placeholder conversion demo
+    jsOut.push("// Conversion from "+lang+" not fully implemented yet");
+    jsOut.push("// " + code);
+  }
+
+  document.getElementById("jsOutput").textContent = jsOut.join("\n");
+
+  // Error detection
+  const errors = detectErrors(code);
+  const hintArea = document.getElementById("hintArea");
+  hintArea.innerHTML="";
+  if(errors.length>0){
+    errors.forEach(err=>{
+      const emoji = selectedEmojis[err.type] || "❗";
+      hintArea.innerHTML += `<div>${emoji} ${err.message}</div>`;
+    });
+  } else {
+    hintArea.innerHTML = "✅ No errors detected!";
+  }
+}
+</script>
+<!-- Challenges & Games Page -->
+<div id="challengesPage" class="card hidden">
+  <h2>Challenges 🏆</h2>
+  <p>Complete coding tasks and earn rewards!</p>
+  <div id="challengeList"></div>
+</div>
+
+<div id="gamesPage" class="card hidden">
+  <h2>Mini Games 🎮</h2>
+  <p>Play fun coding-related games to practice your skills!</p>
+  <div id="gameList"></div>
+</div>
+
+<div id="rewardsPage" class="card hidden">
+  <h2>Rewards 🏅</h2>
+  <div id="rewardList">
+    <p>Complete challenges and games to see your rewards here!</p>
+  </div>
+</div>
+
+<script>
+// PART 5 – DYNAMIC CHALLENGES & GAMES WITH REWARDS
+
+let userPoints = 0;
+
+// Load Challenges dynamically
+async function loadChallenges(){
+  const listDiv = document.getElementById("challengeList");
+  listDiv.innerHTML = "";
+  const snap = await db.collection("challenges").get();
+  snap.forEach(doc=>{
+    const ch = doc.data();
+    const div = document.createElement("div");
+    div.className = "challenge";
+    div.innerHTML = `<h3>${ch.title}</h3><p>${ch.description}</p>
+      <button class="primary" onclick="startChallenge('${doc.id}')">Start</button>`;
+    listDiv.appendChild(div);
+  });
+}
+
+// Load Games dynamically
+async function loadGames(){
+  const listDiv = document.getElementById("gameList");
+  listDiv.innerHTML = "";
+  const snap = await db.collection("games").get();
+  snap.forEach(doc=>{
+    const gm = doc.data();
+    const div = document.createElement("div");
+    div.className = "game";
+    div.innerHTML = `<h3>${gm.title}</h3><p>${gm.description}</p>
+      <button class="primary" onclick="startGame('${doc.id}')">Play</button>`;
+    listDiv.appendChild(div);
+  });
+}
+
+// Start challenge (simulate completion for demo)
+async function startChallenge(id){
+  alert(`Starting challenge ${id}. Complete it in the Playground to earn points!`);
+  // For demo: automatically award points
+  await awardReward(10, `Completed Challenge ${id}`);
+}
+
+// Start game (simulate completion)
+async function startGame(id){
+  alert(`Starting mini game ${id}. Try to score points!`);
+  // For demo: automatically award points
+  await awardReward(5, `Completed Game ${id}`);
+}
+
+// Award points/reward to user
+async function awardReward(points, reward){
+  if(!currentUser) return;
+  userPoints += points;
+  const userRef = db.collection("users").doc(currentUser.uid);
+  const doc = await userRef.get();
+  const rewards = doc.exists && doc.data().rewards ? doc.data().rewards : [];
+  rewards.push({reward, points, date:new Date()});
+  await userRef.update({points:userPoints,rewards});
+  displayRewards();
+  alert(`Congrats! You earned ${points} points for: ${reward}`);
+}
+
+// Display rewards
+async function displayRewards(){
+  if(!currentUser) return;
+  const doc = await db.collection("users").doc(currentUser.uid).get();
+  const rewardList = document.getElementById("rewardList");
+  rewardList.innerHTML="";
+  if(doc.exists && doc.data().rewards && doc.data().rewards.length>0){
+    doc.data().rewards.forEach(r=>{
+      const div = document.createElement("div");
+      div.textContent = `${r.reward} – ${r.points} points (${new Date(r.date.seconds*1000).toLocaleDateString()})`;
+      rewardList.appendChild(div);
+    });
+  } else {
+    rewardList.innerHTML="<p>No rewards yet. Complete challenges and games to earn!</p>";
+  }
+}
+
+// Load all on user login
+auth.onAuthStateChanged(async(user)=>{
+  if(user){
+    currentUser = user;
+    await loadChallenges();
+    await loadGames();
+    await displayRewards();
+  }
+});
+</script>
+
+<style>
+.challenge, .game{background:var(--cream);padding:10px;margin-bottom:12px;border-radius:12px;}
+</style>
+<!-- Admin Dashboard Page -->
+<div id="adminPage" class="card hidden">
+  <h2>Pixel~ Admin Panel ⚡</h2>
+  <p>Manage Challenges, Games, and Rewards dynamically.</p>
+
+  <!-- CHALLENGES -->
+  <div>
+    <h3>Challenges</h3>
+    <input id="newChallengeTitle" placeholder="Challenge Title">
+    <input id="newChallengeDesc" placeholder="Challenge Description">
+    <button class="primary" onclick="addChallenge()">Add Challenge</button>
+    <div id="adminChallengeList"></div>
+  </div>
+
+  <!-- MINI GAMES -->
+  <div>
+    <h3>Mini Games</h3>
+    <input id="newGameTitle" placeholder="Game Title">
+    <input id="newGameDesc" placeholder="Game Description">
+    <button class="primary" onclick="addGame()">Add Game</button>
+    <div id="adminGameList"></div>
+  </div>
+
+  <!-- REWARDS -->
+  <div>
+    <h3>Rewards</h3>
+    <input id="rewardName" placeholder="Reward Name">
+    <input id="rewardPoints" type="number" placeholder="Points">
+    <button class="primary" onclick="assignReward()">Assign Reward</button>
+  </div>
+</div>
+
+<script>
+// PART 6 – ADMIN / EDITING DASHBOARD
+
+// Load challenges and games for admin
+async function loadAdminData(){
+  // Load challenges
+  const challengeListDiv = document.getElementById("adminChallengeList");
+  challengeListDiv.innerHTML="";
+  const challengesSnap = await db.collection("challenges").get();
+  challengesSnap.forEach(doc=>{
+    const ch = doc.data();
+    const div = document.createElement("div");
+    div.textContent = `${ch.title} - ${ch.description}`;
+    const delBtn = document.createElement("button");
+    delBtn.textContent="Delete";
+    delBtn.onclick = async()=>{await db.collection("challenges").doc(doc.id).delete(); loadAdminData();}
+    div.appendChild(delBtn);
+    challengeListDiv.appendChild(div);
+  });
+
+  // Load games
+  const gameListDiv = document.getElementById("adminGameList");
+  gameListDiv.innerHTML="";
+  const gamesSnap = await db.collection("games").get();
+  gamesSnap.forEach(doc=>{
+    const gm = doc.data();
+    const div = document.createElement("div");
+    div.textContent = `${gm.title} - ${gm.description}`;
+    const delBtn = document.createElement("button");
+    delBtn.textContent="Delete";
+    delBtn.onclick = async()=>{await db.collection("games").doc(doc.id).delete(); loadAdminData();}
+    div.appendChild(delBtn);
+    gameListDiv.appendChild(div);
+  });
+}
+
+// Add challenge
+async function addChallenge(){
+  const title = document.getElementById("newChallengeTitle").value;
+  const desc = document.getElementById("newChallengeDesc").value;
+  if(!title || !desc){alert("Enter both title and description"); return;}
+  await db.collection("challenges").add({title,description:desc});
+  document.getElementById("newChallengeTitle").value="";
+  document.getElementById("newChallengeDesc").value="";
+  loadAdminData();
+}
+
+// Add game
+async function addGame(){
+  const title = document.getElementById("newGameTitle").value;
+  const desc = document.getElementById("newGameDesc").value;
+  if(!title || !desc){alert("Enter both title and description"); return;}
+  await db.collection("games").add({title,description:desc});
+  document.getElementById("newGameTitle").value="";
+  document.getElementById("newGameDesc").value="";
+  loadAdminData();
+}
+
+// Assign reward
+async function assignReward(){
+  const name = document.getElementById("rewardName").value;
+  const points = parseInt(document.getElementById("rewardPoints").value);
+  if(!name || !points){alert("Enter reward name and points"); return;}
+  // Example: assign to all users for demo
+  const usersSnap = await db.collection("users").get();
+  usersSnap.forEach(async doc=>{
+    const rewards = doc.data().rewards || [];
+    rewards.push({reward:name, points, date:new Date()});
+    await db.collection("users").doc(doc.id).update({rewards});
+  });
+  alert(`Reward "${name}" with ${points} points assigned to all users!`);
+  document.getElementById("rewardName").value="";
+  document.getElementById("rewardPoints").value="";
+}
+
+// Auto load admin data on page show
+document.getElementById("adminPage").addEventListener("show", loadAdminData);
+</script>
+
+<style>
+#adminPage input{margin:5px;padding:5px;border-radius:6px;border:1px solid #ccc;}
+#adminPage button{margin:5px;padding:5px 10px;border-radius:6px;}
+#adminChallengeList div, #adminGameList div{background:var(--cream);padding:6px;margin:4px;border-radius:6px;display:flex;justify-content:space-between;}
+</style>
+<!-- Privacy Policy / Consent Page -->
+<div id="privacyPage" class="card hidden">
+  <h2>Privacy Policy & Terms of Use 🔒</h2>
+  <p>Please read and accept our Privacy Policy before continuing.</p>
+
+  <div style="background:var(--cream);padding:10px;height:300px;overflow-y:scroll;border-radius:12px;margin-bottom:15px;">
+    <h3>Pixel~ Privacy Policy</h3>
+    <p>Welcome to Pixel~! We respect your privacy and are committed to protecting your personal information.</p>
+    <p>We collect your email, ID, age, and account data to provide a personalized learning experience, save your code, challenges, games, and rewards. We do NOT share your data with third parties without your consent.</p>
+    <p>We use your email for authentication and password recovery. You can request to delete your data anytime by contacting us at <strong>pixel~@example.com</strong>.</p>
+    <p>By accepting, you acknowledge that you understand our practices and agree to comply with our Terms of Use.</p>
+  </div>
+
+  <label>
+    <input type="checkbox" id="acceptPrivacy"> I have read and accept the Privacy Policy
+  </label>
+
+  <button class="primary" onclick="acceptPrivacyPolicy()">Continue</button>
+</div>
+
+<script>
+// PART 7 – PRIVACY POLICY & USER CONSENT
+
+async function acceptPrivacyPolicy(){
+  const checked = document.getElementById("acceptPrivacy").checked;
+  if(!checked){alert("You must accept the privacy policy to continue."); return;}
+  if(!currentUser){alert("Login first!"); return;}
+
+  await db.collection("users").doc(currentUser.uid).update({
+    acceptedPrivacy:true
+  });
+
+  alert("Thank you for accepting the Privacy Policy! Enjoy Pixel~.");
+  showPage("onboardingPage"); // continue to onboarding / dashboard
+}
+
+// Enforce check on login
+auth.onAuthStateChanged(async(user)=>{
+  if(user){
+    currentUser = user;
+    const doc = await db.collection("users").doc(currentUser.uid).get();
+    if(!doc.exists || !doc.data().acceptedPrivacy){
+      showPage("privacyPage");
+    } else {
+      showPage("dashboard");
+    }
+  }
+});
+</script>
+
+<style>
+#privacyPage input[type=checkbox]{margin-right:10px;}
+#privacyPage button{margin-top:10px;padding:6px 12px;border-radius:6px;}
+</style>
+<!-- Onboarding Page -->
+<div id="onboardingPage" class="card hidden">
+  <h2>Welcome to Pixel~! 🎉</h2>
+  <p>Let's set up your coding experience.</p>
+
+  <label for="ageInput">Enter your age:</label>
+  <input type="number" id="ageInput" min="5" max="120" placeholder="Your age">
+
+  <label for="languageInput">Preferred starting language:</label>
+  <select id="languageInput">
+    <option value="blocks">Blocks (under 10)</option>
+    <option value="english">English Commands (under 18)</option>
+    <option value="pseudocode">Pseudocode (under 25)</option>
+    <option value="python">Python (older)</option>
+  </select>
+
+  <button class="primary" onclick="finishOnboarding()">Continue</button>
+</div>
+
+<script>
+// PART 8 – ONBOARDING & AGE-BASED CUSTOMIZATION
+
+async function finishOnboarding(){
+  const age = parseInt(document.getElementById("ageInput").value);
+  let lang = document.getElementById("languageInput").value;
+
+  if(!age || !currentUser){alert("Please enter a valid age."); return;}
+
+  // Auto-select based on age if user didn't pick
+  if(!lang){
+    if(age < 10) lang="blocks";
+    else if(age < 18) lang="english";
+    else if(age < 25) lang="pseudocode";
+    else lang="python";
+  }
+
+  // Save to Firestore
+  await db.collection("users").doc(currentUser.uid).update({
+    age: age,
+    preferredLanguage: lang,
+    hasCompletedOnboarding:true
+  });
+
+  alert("Setup complete! Enjoy Pixel~.");
+  showPage("emojiPickerPage"); // continue to emoji selection
+}
+
+// Option to allow user to change language anytime
+async function changeLanguage(lang){
+  if(!currentUser) return;
+  await db.collection("users").doc(currentUser.uid).update({
+    preferredLanguage: lang
+  });
+  alert(`Your preferred language is now: ${lang}`);
+}
+
+// Example: Load preferred language when user logs in
+auth.onAuthStateChanged(async(user)=>{
+  if(user){
+    currentUser = user;
+    const doc = await db.collection("users").doc(currentUser.uid).get();
+    if(doc.exists){
+      const data = doc.data();
+      if(data.hasCompletedOnboarding){
+        // Load language
+        document.getElementById("languageInput").value = data.preferredLanguage || "english";
+      } else {
+        showPage("onboardingPage");
+      }
+    }
+  }
+});
+</script>
+
+<style>
+#onboardingPage input, #onboardingPage select{margin:5px 0;padding:5px;border-radius:6px;border:1px solid #ccc;width:100%;}
+#onboardingPage button{margin-top:10px;padding:6px 12px;border-radius:6px;}
+</style>
